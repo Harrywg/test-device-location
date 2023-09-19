@@ -1,34 +1,69 @@
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
-export default function App() {
-  function requestPermission() {
-    return Location.requestForegroundPermissionsAsync();
-  }
+import MapView, { Circle } from "react-native-maps";
 
-  const [currentLocation, setCurrentLocation] = useState({});
+export default function App() {
+  const [currentLocation, setCurrentLocation] = useState({
+    latitude: 0,
+    longitude: 0,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
+  });
+
+  const onPositionChange = (arg) => {
+    console.log(arg);
+    const { coords } = arg;
+    console.log("position changed");
+    const { latitude, longitude } = coords;
+    const newRegion = { ...currentLocation, latitude, longitude };
+    if (coords) setCurrentLocation(newRegion);
+    mapRef.current.animateToRegion(newRegion, 1000);
+  };
+
+  const mapRef = useRef(null);
+  const circleRef = useRef(null);
+
+  useEffect(() => console.log(currentLocation), [currentLocation]);
 
   useEffect(() => {
-    requestPermission()
+    Location.requestForegroundPermissionsAsync()
       .then(({ status }) => {
         if (status !== "granted") throw new Error("permission not granted");
-        Location.getCurrentPositionAsync()
-          .then(({ coords }) => {
-            setCurrentLocation(coords);
-            console.log(coords);
-          })
-          .catch(console.warn);
+        return Location.watchPositionAsync(
+          { enableHighAccuracy: true },
+          onPositionChange
+        );
       })
       .catch(console.warn);
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={{ fontWeight: "bold", fontSize: 30 }}>Test</Text>
-      {Object.keys(currentLocation).map((key) => {
-        return <Text>{`${key} : ${currentLocation[key]}`}</Text>;
-      })}
+      <MapView
+        ref={mapRef}
+        initialRegion={{
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: 0,
+          longitudeDelta: 0,
+        }}
+        style={{ height: 300, width: 300 }}
+      >
+        <Circle
+          ref={circleRef}
+          center={{
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+          }}
+          radius={1000}
+        ></Circle>
+      </MapView>
+      <Text>Test</Text>
+      <Text>Latitude {currentLocation.latitude}</Text>
+      <Text>Longitude {currentLocation.longitude}</Text>
+
       <StatusBar style="auto" />
     </View>
   );
